@@ -1,5 +1,7 @@
 package bgu.spl.net.srv;
 
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerData {
@@ -29,10 +31,14 @@ public class ServerData {
         this.ConnectionIDTOuserName.put(connectionID,userName);
     }
 
-    public boolean logOut(int connectionID)
+    public void logOut(int connectionID)
     {
         String userName = ConnectionIDTOuserName.get(connectionID);
         userNameToConncetionID.remove(userName);
         ConnectionIDTOuserName.remove(connectionID);
     }
+    public LinkedList<Integer> getAllConnectionIds(){
+        return new LinkedList<>(this.userNameToConncetionID.values());
+    }
+
 }

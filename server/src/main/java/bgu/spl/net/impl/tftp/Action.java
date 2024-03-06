@@ -1,58 +1,91 @@
 package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.srv.BaseConnections;
+import bgu.spl.net.srv.BlockingConnectionHandler;
+import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.ServerData;
 
+import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Action {
 
     private ServerData sd;
     private int connectionID;
 
-    public Action(ServerData sd, int connectionID)
+    private Connections<byte[]> connections;
+
+    private String[] errorStringArray;
+    private Path folderDir;
+    private Boolean DataWriteORread = false; // false = read
+    private String LastFileName;
+    private LinkedList<Byte> bytesToSend;
+    public Action(ServerData sd, int connectionID, Connections<byte[]> connections)
     {
         this.sd = sd;
         this.connectionID = connectionID;
+        this.connections = connections;
+        this.bytesToSend = new LinkedList<Byte>();
+
+
+        String error0 = "0500Not defined, see error message (if any).0";
+        String error1 = "0501File not found – RRQ DELRQ of non-existing file.0";
+        String error2 = "0502Access violation – File cannot be written, read or deleted.0";
+        String error3 = "0503Disk full or allocation exceeded – No room in disk.0";
+        String error4 =  "0504Illegal TFTP operation – Unknown Opcode.0";
+        String error5 =  "0505File already exists – File name exists on WRQ.0";
+        String error6 = "0506User not logged in – Any opcode received before Login completes.0";
+        String error7 = "0507User already logged in – Login username already connected.0";
+
+        this.errorStringArray = new String[]{error0,error1,error2,error3,error4,error5,error6,error7};
+
+        Path currentDir = Paths.get("").toAbsolutePath();
+        Path serverDir = currentDir.getParent().getParent().getParent().getParent();
+        this.folderDir = serverDir.resolve("Files");
     }
-    public byte[] act(byte[] message) {
+    public void act(byte[] message) {
        byte[] b = new byte[]{message[0],message[1]};
-       short opcode = (short)(((short)b[0]) << 8 | (short)(b[1]));
+       short opcode = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
 
        byte[] msgwithoutopcode = opcodeRemover(message);
+
        switch (opcode){
            case 1:
-               return read(msgwithoutopcode);
+               read(msgwithoutopcode);
                break;
            case 2:
-               return write(msgwithoutopcode);
+               write(msgwithoutopcode);
                break;
            case 3:
-               return data(msgwithoutopcode);
+               data(msgwithoutopcode);
+               break;
+           case 4:
+               reciveAck(msgwithoutopcode);
                break;
 
            case 6:
-               return dirq(msgwithoutopcode);
+               dirq(msgwithoutopcode);
                break;
 
            case 7:
-               return login(msgwithoutopcode);
+               login(msgwithoutopcode);
                break;
            case 8:
-               return delete(msgwithoutopcode);
-               break;
-           case 9:
-               return bcast(msgwithoutopcode);
+               delete(msgwithoutopcode);
                break;
            case 10:
-               return disc();
+               disc();
                break;
        }
-        return null;
     }
 
     /**
@@ -70,43 +103,108 @@ public class Action {
         return result;
 
     }
-    public byte[] login(byte[] message)
+    public void login(byte[] message)
     {
         String userName = byteDecoder(message);
         if(!sd.isLoggedINName(userName)) {
             sd.logIN(connectionID, userName);
-            return ack(0);
+            SendAck(0);
         }
         else
-            return error(7);
+            error(7);
+
     }
 
-    public byte[] disc()
+    public void disc()
     {
         sd.logOut(connectionID);
-        return ack(0);
+        SendAck(0);
     }
-    public byte[] write(byte[] msg)
+    public void write(byte[] msg)
     {
-        String fileName = byteDecoder(msg);
-        if (!fileExists(fileName))
+         this.LastFileName = byteDecoder(msg);
+        if (!fileExists(this.LastFileName))
         {
-            //Last action - how to get the data packets
+            this.DataWriteORread = true;
+            SendAck(0);
         }
         else
-            return error(5);
+            error(5);
     }
 
-    public byte[] read(byte[] msg)
+    public void read(byte[] msg)
     {
-        String fileName = byteDecoder(msg);
-        if (!fileExists(fileName))
+        this.LastFileName = byteDecoder(msg);
+        if (!fileExists(this.LastFileName))
         {
-            //Last action - how to get the data packets
+            error(1);
+        }
+        else {
+            try {
+                byte[] byteArray = Files.readAllBytes(Paths.get(this.folderDir +"/" + this.LastFileName));
+                LinkedList<Byte> list = new LinkedList<Byte>();
+                for(byte b : byteArray){
+                    list.add((Byte) b);
+                }
+                this.bytesToSend = list;
+                sendData(1);
+            }catch (Exception ignored){}
+        }
+    }
+
+    private void sendData(int blocknumber){
+        if (bytesToSend.size() < 512 & bytesToSend.size() > 0){
+            connections.send(connectionID,dataEncoder(this.bytesToSend,blocknumber));
+            this.bytesToSend.clear();
+        }
+        else if (bytesToSend.size()>511){
+            LinkedList<Byte> currentData = new LinkedList<Byte>();
+            for (int i = 0; i < 512; i++) {
+                currentData.add(this.bytesToSend.remove());
+            }
+            connections.send(connectionID, dataEncoder(currentData, blocknumber));
+
         }
         else
-            return error(1);
+        {
+            String clientNotification = "10RRQ " + this.LastFileName + " complete0";
+            connections.send(connectionID,clientNotification.getBytes());
+            this.LastFileName = "";
+        }
     }
+
+
+    private byte[] dataEncoder(List<Byte> lb, int blockNumber){
+        byte[] DataEncoded = new byte[6 + lb.size()];
+        DataEncoded[0] = 0;
+        DataEncoded[1] = 3;
+
+        if (lb.size() > 255) {
+            DataEncoded[2] = (byte)(lb.size() - 255);
+            DataEncoded[3] = (byte)255;
+        }
+        else
+        {
+            DataEncoded[2] =  0;
+            DataEncoded[3] = (byte)(lb.size());
+        }
+
+        DataEncoded[0] = 0;
+        DataEncoded[0] = (byte) blockNumber;
+
+        int i = 6;
+        for (byte b : lb)
+        {
+            DataEncoded[i] = b;
+            i++;
+        }
+
+        return DataEncoded;
+
+
+    }
+
+
 
     /**
      * The function converts the byte array into string
@@ -118,17 +216,84 @@ public class Action {
         return new String(msg, StandardCharsets.UTF_8).substring(0,msg.length-1);
     }
 
+    public String DataDecoder(byte[] msg)
+    {
+        return new String(msg, StandardCharsets.UTF_8).substring(4,msg.length);
+    }
     public boolean fileExists(String filename)
     {
-        Path currentDir = Paths.get("").toAbsolutePath();
-        Path serverDir = currentDir.getParent().getParent().getParent().getParent();
-        Path folderDir = serverDir.resolve("Files");
 
-        String filePath = folderDir + "/" + filename;
-
+        String filePath = this.folderDir + "/" + filename;
         return Files.exists(Paths.get(filePath));
     }
 
+    public void error(int errroIndex)
+    {
+        connections.send(connectionID,this.errorStringArray[errroIndex].getBytes());
+    }
 
+    public void SendAck(int blockNumber)
+    {
+        short a = (short) blockNumber;
+        connections.send(connectionID,new byte []{0,4,(byte)( a >> 8) , (byte)( a & 0xff )});
+    }
 
+    public void data(byte[] msg)
+    {
+        byte[] b = new byte[]{msg[4],msg[5]};
+        short blockNumber = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
+
+        byte[] s = new byte[]{msg[2],msg[3]};
+        short packetSize = (short)(((short)s[0] & 0xFF) << 8 | (short)(s[1] & 0xFF));
+
+        if (DataWriteORread)
+        {
+            if (packetSize == 512) {
+                try {
+                    Files.write(Paths.get(this.folderDir +"/" + this.LastFileName), DataDecoder(msg).getBytes());
+
+                } catch (Exception ignored) {
+                }
+
+                 SendAck(blockNumber);
+            }
+            else{
+                try {
+                    Files.write(Paths.get(this.folderDir +"/" + this.LastFileName), DataDecoder(msg).getBytes());
+
+                } catch (Exception ignored) {
+                }
+
+            SendAck(blockNumber);
+            String clientNotification = "10WRQ" + this.LastFileName + "comlete0";
+            connections.send(connectionID,clientNotification.getBytes());
+            Bcast(1);
+            this.LastFileName = "";
+        }
+        }
+    }
+
+    public void Bcast(int index)
+    {
+        byte[] tocast = new byte[4 + this.LastFileName.length()];
+        tocast[0] = 0;
+        tocast[1] = 9;
+        tocast[2] = (byte)index;
+        int j = 3;
+        for (int i = 0; i < this.LastFileName.length();i++)
+        {
+            tocast[i + j] = (byte) this.LastFileName.charAt(i);
+        }
+        tocast[tocast.length-1] = 0;
+
+        for (Integer id : this.sd.getAllConnectionIds())
+            connections.send(id,tocast);
+    }
+
+    public void reciveAck(byte[] msg)
+    {
+        byte[] b = new byte[]{msg[2],msg[3]};
+        short blockNumber = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
+        sendData(blockNumber + 1);
+    }
 }

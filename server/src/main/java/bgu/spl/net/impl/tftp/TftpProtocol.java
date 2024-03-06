@@ -5,6 +5,8 @@ import bgu.spl.net.srv.BaseConnections;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.ServerData;
 
+import java.util.List;
+
 public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private boolean shouldTerminate = false;
@@ -17,7 +19,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     @Override
     public void process(byte[] message) {
         // TODO implement this
-        action.act(message);
+
+       action.act(message);
 
     }
 
@@ -26,7 +29,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.shouldTerminate = false;
         this.connectionID = connectionId;
         this.connections = connections;
-        this.action = new Action(sd,connectionID);
+        this.action = new Action(sd,connectionID,connections);
     }
 
     @Override
