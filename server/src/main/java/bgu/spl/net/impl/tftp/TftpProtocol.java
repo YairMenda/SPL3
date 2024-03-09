@@ -12,9 +12,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private boolean shouldTerminate = false;
 
     private int connectionID;
-
-    private Connections<byte[]> connections;
-
     private Action action;
     @Override
     public void process(byte[] message) {
@@ -25,11 +22,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     }
 
     @Override
-    public void start(int connectionId, Connections<byte[]> connections, ServerData sd) {
+    public void start(int connectionId) {
         this.shouldTerminate = false;
         this.connectionID = connectionId;
-        this.connections = connections;
-        this.action = new Action(sd,connectionID,connections);
+        this.action = new Action(connectionID);
     }
 
     @Override

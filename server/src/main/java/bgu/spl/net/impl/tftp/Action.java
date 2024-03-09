@@ -1,9 +1,6 @@
 package bgu.spl.net.impl.tftp;
 
-import bgu.spl.net.srv.BaseConnections;
-import bgu.spl.net.srv.BlockingConnectionHandler;
-import bgu.spl.net.srv.Connections;
-import bgu.spl.net.srv.ServerData;
+import bgu.spl.net.srv.*;
 
 import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
@@ -29,13 +26,15 @@ public class Action {
     private Boolean DataWriteORread = false; // false = read
     private String LastFileName;
     private LinkedList<Byte> bytesToSend;
-    public Action(ServerData sd, int connectionID, Connections<byte[]> connections)
-    {
-        this.sd = sd;
-        this.connectionID = connectionID;
-        this.connections = connections;
-        this.bytesToSend = new LinkedList<Byte>();
 
+    private LinkedList<Byte> bytesToWrite;
+    public Action(int connectionID)
+    {
+        this.sd = serverDataSingleton.getInstance();
+        this.connectionID = connectionID;
+        this.connections = connectionsSingleton.getInstance();
+        this.bytesToSend = new LinkedList<Byte>();
+        this.bytesToWrite = new LinkedList<Byte>();
 
         String error0 = "0500Not defined, see error message (if any).0";
         String error1 = "0501File not found – RRQ DELRQ of non-existing file.0";
@@ -73,7 +72,7 @@ public class Action {
                break;
 
            case 6:
-               dirq(msgwithoutopcode);
+               dirq();
                break;
 
            case 7:
@@ -123,7 +122,7 @@ public class Action {
     public void write(byte[] msg)
     {
          this.LastFileName = byteDecoder(msg);
-        if (!fileExists(this.LastFileName))
+        if (!this.sd.fileExists(this.LastFileName))
         {
             this.DataWriteORread = true;
             SendAck(0);
@@ -135,13 +134,11 @@ public class Action {
     public void read(byte[] msg)
     {
         this.LastFileName = byteDecoder(msg);
-        if (!fileExists(this.LastFileName))
-        {
-            error(1);
-        }
-        else {
-            try {
-                byte[] byteArray = Files.readAllBytes(Paths.get(this.folderDir +"/" + this.LastFileName));
+        try {
+                byte[] byteArray = this.sd.readFile(this.LastFileName);
+                if (byteArray == null)
+                    error(1);
+
                 LinkedList<Byte> list = new LinkedList<Byte>();
                 for(byte b : byteArray){
                     list.add((Byte) b);
@@ -149,7 +146,6 @@ public class Action {
                 this.bytesToSend = list;
                 sendData(1);
             }catch (Exception ignored){}
-        }
     }
 
     private void sendData(int blocknumber){
@@ -165,11 +161,15 @@ public class Action {
             connections.send(connectionID, dataEncoder(currentData, blocknumber));
 
         }
+
         else
         {
-            String clientNotification = "10RRQ " + this.LastFileName + " complete0";
-            connections.send(connectionID,clientNotification.getBytes());
-            this.LastFileName = "";
+            if (this.LastFileName  != "") {
+                String clientNotification = "10RRQ " + this.LastFileName + " complete0";
+                connections.send(connectionID, clientNotification.getBytes());
+                this.LastFileName = "";
+            }
+
         }
     }
 
@@ -220,12 +220,6 @@ public class Action {
     {
         return new String(msg, StandardCharsets.UTF_8).substring(4,msg.length);
     }
-    public boolean fileExists(String filename)
-    {
-
-        String filePath = this.folderDir + "/" + filename;
-        return Files.exists(Paths.get(filePath));
-    }
 
     public void error(int errroIndex)
     {
@@ -249,29 +243,40 @@ public class Action {
         if (DataWriteORread)
         {
             if (packetSize == 512) {
-                try {
-                    Files.write(Paths.get(this.folderDir +"/" + this.LastFileName), DataDecoder(msg).getBytes());
-
-                } catch (Exception ignored) {
+                byte[] tempArray = DataDecoder(msg).getBytes();
+                for (byte p: tempArray)
+                {
+                    this.bytesToWrite.add(p);
                 }
-
-                 SendAck(blockNumber);
+                SendAck(blockNumber);
+                }
             }
+
             else{
                 try {
-                    Files.write(Paths.get(this.folderDir +"/" + this.LastFileName), DataDecoder(msg).getBytes());
-
+                    byte[] tempArray = DataDecoder(msg).getBytes();
+                    for (byte p: tempArray)
+                    {
+                        this.bytesToWrite.add(p);
+                    }
+                    if (this.sd.writeToFile(this.LastFileName, this.bytesToWrite))
+                    {
+                        SendAck(blockNumber);
+                        String clientNotification = "10WRQ" + this.LastFileName + "comlete0";
+                        connections.send(connectionID,clientNotification.getBytes());
+                        Bcast(1);
+                        this.LastFileName = "";
+                        this.bytesToWrite.clear();
+                    }
+                    else {
+                        error(2);
+                        this.LastFileName = "";
+                        this.bytesToWrite.clear();
+                    }
                 } catch (Exception ignored) {
                 }
-
-            SendAck(blockNumber);
-            String clientNotification = "10WRQ" + this.LastFileName + "comlete0";
-            connections.send(connectionID,clientNotification.getBytes());
-            Bcast(1);
-            this.LastFileName = "";
+            }
         }
-        }
-    }
 
     public void Bcast(int index)
     {
@@ -296,4 +301,37 @@ public class Action {
         short blockNumber = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
         sendData(blockNumber + 1);
     }
+
+    public void delete(byte[] msg)
+    {
+        this.LastFileName = byteDecoder(msg);
+        if (this.sd.fileExists(this.LastFileName))
+        {
+            if (this.sd.deleteFile(this.LastFileName)) {
+                SendAck(0);
+                Bcast(0);
+            }
+            else
+                error(2);
+
+        }
+        else
+            error(1);
+    }
+
+    public void dirq()
+    {
+        LinkedList<String> fileNames = this.sd.dirq();
+        for (String f : fileNames)
+        {
+            f = f + "0";
+            byte[] bArray = f.getBytes();
+            for (byte b : bArray)
+                this.bytesToSend.add(b);
+        }
+
+        sendData(0);
+
+    }
+
 }
