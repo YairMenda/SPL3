@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.SQLOutput;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -22,7 +23,7 @@ public class Action {
     private Connections<byte[]> connections;
 
     private String[] errorStringArray;
-    private Path folderDir;
+    //private Path folderDir;
     private Boolean DataWriteORread = false; // false = read
     private String LastFileName;
     private LinkedList<Byte> bytesToSend;
@@ -36,20 +37,20 @@ public class Action {
         this.bytesToSend = new LinkedList<Byte>();
         this.bytesToWrite = new LinkedList<Byte>();
 
-        String error0 = "0500Not defined, see error message (if any).0";
-        String error1 = "0501File not found – RRQ DELRQ of non-existing file.0";
-        String error2 = "0502Access violation – File cannot be written, read or deleted.0";
-        String error3 = "0503Disk full or allocation exceeded – No room in disk.0";
-        String error4 =  "0504Illegal TFTP operation – Unknown Opcode.0";
-        String error5 =  "0505File already exists – File name exists on WRQ.0";
-        String error6 = "0506User not logged in – Any opcode received before Login completes.0";
-        String error7 = "0507User already logged in – Login username already connected.0";
+        String error0 = "Not defined, see error message (if any).";
+        String error1 = "File not found – RRQ DELRQ of non-existing file.";
+        String error2 = "Access violation – File cannot be written, read or deleted.";
+        String error3 = "Disk full or allocation exceeded – No room in disk.";
+        String error4 =  "Illegal TFTP operation – Unknown Opcode.";
+        String error5 =  "File already exists – File name exists on WRQ.";
+        String error6 = "User not logged in – Any opcode received before Login completes.";
+        String error7 = "User already logged in – Login username already connected.";
 
         this.errorStringArray = new String[]{error0,error1,error2,error3,error4,error5,error6,error7};
 
-        Path currentDir = Paths.get("").toAbsolutePath();
-        Path serverDir = currentDir.getParent().getParent().getParent().getParent();
-        this.folderDir = serverDir.resolve("Files");
+        //Path currentDir = Paths.get("").toAbsolutePath();
+        //Path serverDir = currentDir.getParent().getParent().getParent().getParent();
+        //this.folderDir = serverDir.resolve("Files");
     }
     public void act(byte[] message) {
        byte[] b = new byte[]{message[0],message[1]};
@@ -57,34 +58,36 @@ public class Action {
 
        byte[] msgwithoutopcode = opcodeRemover(message);
 
-       switch (opcode){
-           case 1:
-               read(msgwithoutopcode);
-               break;
-           case 2:
-               write(msgwithoutopcode);
-               break;
-           case 3:
-               data(msgwithoutopcode);
-               break;
-           case 4:
-               reciveAck(msgwithoutopcode);
-               break;
-
-           case 6:
-               dirq();
-               break;
-
-           case 7:
-               login(msgwithoutopcode);
-               break;
-           case 8:
-               delete(msgwithoutopcode);
-               break;
-           case 10:
-               disc();
-               break;
-       }
+        System.out.println("opcode " +opcode);
+       if (serverDataSingleton.getInstance().isLoggedINID(this.connectionID) | opcode == 7) {
+           switch (opcode) {
+               case 1:
+                   read(msgwithoutopcode);
+                   break;
+               case 2:
+                   write(msgwithoutopcode);
+                   break;
+               case 3:
+                   data(msgwithoutopcode);
+                   break;
+               case 4:
+                   reciveAck(msgwithoutopcode);
+                   break;
+               case 6:
+                   dirq();
+                   break;
+               case 7:
+                   login(msgwithoutopcode);
+                   break;
+               case 8:
+                   delete(msgwithoutopcode);
+                   break;
+               case 10:
+                   disc();
+                   break;
+           }
+       } else
+           error(6);
     }
 
     /**
@@ -221,9 +224,22 @@ public class Action {
         return new String(msg, StandardCharsets.UTF_8).substring(4,msg.length);
     }
 
-    public void error(int errroIndex)
+    public void error(int errorIndex)
     {
-        connections.send(connectionID,this.errorStringArray[errroIndex].getBytes());
+        byte[] byteArray = new byte[this.errorStringArray[errorIndex].length() + 5];
+        byteArray[0] = 0;
+        byteArray[1] = 5;
+        byteArray[2] = 0;
+        byteArray[3] = (byte)errorIndex;
+
+        for (int j = 4; j < byteArray.length - 1;j++)
+        {
+          byteArray[j] = this.errorStringArray[errorIndex].getBytes()[j-4];
+        }
+        byteArray[byteArray.length - 1] = 0;
+
+        System.out.println("error send ");
+        connections.send(connectionID,byteArray);
     }
 
     public void SendAck(int blockNumber)

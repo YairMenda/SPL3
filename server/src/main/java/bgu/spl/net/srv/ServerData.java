@@ -21,8 +21,11 @@ public class ServerData {
         fileNameLock = new LinkedList<String>();
 
         Path currentDir = Paths.get("").toAbsolutePath();
-        Path serverDir = currentDir.getParent().getParent().getParent().getParent();
-        this.folderDir = serverDir.resolve("Files");
+        //Path serverDir = currentDir.getParent().getParent().getParent().getParent();
+        System.out.println(currentDir);
+        //System.out.println(serverDir);
+        this.folderDir = currentDir.resolve("Files");
+        System.out.println(folderDir);
     }
     public boolean isLoggedINName(String userName)
     {
@@ -31,13 +34,15 @@ public class ServerData {
 
     public boolean isLoggedINID(int connectionID)
     {
-        return this.ConnectionIDTOuserName.contains(connectionID);
+        return this.userNameToConncetionID.contains(connectionID);
     }
 
     public void logIN(int connectionID,String userName)
     {
         this.userNameToConncetionID.put(userName,connectionID);
         this.ConnectionIDTOuserName.put(connectionID,userName);
+
+        System.out.println(userName + " " + connectionID);
     }
 
     public void logOut(int connectionID)

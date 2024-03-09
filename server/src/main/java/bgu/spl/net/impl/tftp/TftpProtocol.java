@@ -17,6 +17,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     public void process(byte[] message) {
         // TODO implement this
 
+        System.out.println("Process");
        action.act(message);
 
     }

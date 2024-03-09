@@ -5,14 +5,14 @@ import bgu.spl.net.impl.rci.RCIClient;
 public class NewsFeedClientMain {
 
     public static void main(String[] args) throws Exception {
-        if (args.length == 0) {
+        /*if (args.length == 0) {
             args = new String[]{"127.0.0.1"};
         }
 
 //        System.out.println("running clients");
         runFirstClient(args[0]);
         runSecondClient(args[0]);
-        runThirdClient(args[0]);
+        runThirdClient(args[0]);*/
     }
 
     private static void runFirstClient(String host) throws Exception {
