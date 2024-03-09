@@ -8,11 +8,7 @@ import bgu.spl.net.srv.Server;
 
 public class TftpServer{
     //TODO: Implement this
-    private BaseConnections<byte[]> connections;
-    public TftpServer()
-    {
-        this.connections = new BaseConnections<>();
-    }
+
     public static void main(String[] args) {
 
         // you can use any server...
