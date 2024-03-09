@@ -11,7 +11,7 @@ public class EchoClient {
 
     public static void main(String[] args) throws IOException {
 
-        if (args.length == 0) {
+        /*if (args.length == 0) {
             args = new String[]{"localhost", "hello"};
         }
 
@@ -32,7 +32,7 @@ public class EchoClient {
 
             System.out.println("awaiting response");
             String line = in.readLine();
-            System.out.println("message from server: " + line);
-        }
+            System.out.println("message from server: " + line);*/
+        //}
     }
 }

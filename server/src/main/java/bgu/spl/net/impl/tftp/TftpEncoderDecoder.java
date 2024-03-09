@@ -2,6 +2,7 @@ package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
 
+import java.sql.SQLOutput;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -24,7 +25,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         }
 
         else
-            if (nextByte == '0' | (Bytes.size() == 1 & (nextByte == 'a' | nextByte == '6'))){
+            if (nextByte == 0 | (Bytes.size() == 1 & (nextByte == 10 | nextByte == 6))){
                 Bytes.add(nextByte);
                 return BytesArray();
             }
