@@ -1,8 +1,5 @@
 package bgu.spl.net.impl.tftp;
 
-import bgu.spl.net.impl.echo.EchoProtocol;
-import bgu.spl.net.impl.echo.LineMessageEncoderDecoder;
-import bgu.spl.net.srv.BaseConnections;
 import bgu.spl.net.srv.BaseServer;
 import bgu.spl.net.srv.Server;
 

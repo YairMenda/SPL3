@@ -2,25 +2,16 @@ package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.srv.*;
 
-import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.SQLOutput;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class Action {
 
     private ServerData sd;
     private int connectionID;
 
-    private Connections<byte[]> connections;
+    private BaseConnections connections;
 
     private String[] errorStringArray;
     //private Path folderDir;
@@ -168,8 +159,12 @@ public class Action {
         else
         {
             if (this.LastFileName  != "") {
-                String clientNotification = "10RRQ " + this.LastFileName + " complete0";
-                connections.send(connectionID, clientNotification.getBytes());
+//
+//                byte[] msgNotifcation = ("RRQ " + this.LastFileName + " complete").getBytes();
+//                LinkedList<Byte> lb = new LinkedList<Byte>();
+//                for (byte b : msgNotifcation)
+//                    lb.add(b);
+//                connections.send(connectionID, dataEncoder(lb,1));
                 this.LastFileName = "";
             }
 
@@ -179,21 +174,15 @@ public class Action {
 
     private byte[] dataEncoder(List<Byte> lb, int blockNumber){
         byte[] DataEncoded = new byte[6 + lb.size()];
+        byte[] blockNumberPacket = new byte[]{(byte) ((blockNumber >> 8) & 0xff), (byte)(blockNumber & 0xff)};
+        byte[] packetSize = new byte[]{(byte) ((lb.size() >> 8) & 0xff) , (byte)(lb.size() & 0xff)};
+
         DataEncoded[0] = 0;
         DataEncoded[1] = 3;
-
-        if (lb.size() > 255) {
-            DataEncoded[2] = (byte)(lb.size() - 255);
-            DataEncoded[3] = (byte)255;
-        }
-        else
-        {
-            DataEncoded[2] =  0;
-            DataEncoded[3] = (byte)(lb.size());
-        }
-
-        DataEncoded[0] = 0;
-        DataEncoded[0] = (byte) blockNumber;
+        DataEncoded[2] = packetSize[0];
+        DataEncoded[3] = packetSize[1];
+        DataEncoded[4] = blockNumberPacket[0];
+        DataEncoded[5] = blockNumberPacket[1];
 
         int i = 6;
         for (byte b : lb)
@@ -201,10 +190,7 @@ public class Action {
             DataEncoded[i] = b;
             i++;
         }
-
         return DataEncoded;
-
-
     }
 
 
@@ -248,52 +234,46 @@ public class Action {
         connections.send(connectionID,new byte []{0,4,(byte)( a >> 8) , (byte)( a & 0xff )});
     }
 
-    public void data(byte[] msg)
-    {
-        byte[] b = new byte[]{msg[4],msg[5]};
-        short blockNumber = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
+    public void data(byte[] msg) {
+        byte[] b = new byte[]{msg[4], msg[5]};
+        short blockNumber = (short) (((short) b[0] & 0xFF) << 8 | (short) (b[1] & 0xFF));
 
-        byte[] s = new byte[]{msg[2],msg[3]};
-        short packetSize = (short)(((short)s[0] & 0xFF) << 8 | (short)(s[1] & 0xFF));
+        byte[] s = new byte[]{msg[2], msg[3]};
+        short packetSize = (short) (((short) s[0] & 0xFF) << 8 | (short) (s[1] & 0xFF));
 
-        if (DataWriteORread)
-        {
-            if (packetSize == 512) {
+        if (packetSize == 512) {
+            byte[] tempArray = DataDecoder(msg).getBytes();
+            for (byte p : tempArray) {
+                this.bytesToWrite.add(p);
+            }
+            SendAck(blockNumber);
+        } else {
+            try {
                 byte[] tempArray = DataDecoder(msg).getBytes();
-                for (byte p: tempArray)
-                {
+                for (byte p : tempArray) {
                     this.bytesToWrite.add(p);
                 }
-                SendAck(blockNumber);
-                }
-            }
+                if (this.sd.writeToFile(this.LastFileName, this.bytesToWrite)) {
+                    SendAck(blockNumber);
+//
+//                    byte[] msgNotifcation = ("WRQ " + this.LastFileName + " complete").getBytes();
+//                    LinkedList<Byte> lb = new LinkedList<Byte>();
+//                    for (byte p : msgNotifcation)
+//                        lb.add(p);
+//                    connections.send(connectionID, dataEncoder(lb,1));
 
-            else{
-                try {
-                    byte[] tempArray = DataDecoder(msg).getBytes();
-                    for (byte p: tempArray)
-                    {
-                        this.bytesToWrite.add(p);
-                    }
-                    if (this.sd.writeToFile(this.LastFileName, this.bytesToWrite))
-                    {
-                        SendAck(blockNumber);
-                        String clientNotification = "10WRQ" + this.LastFileName + "comlete0";
-                        connections.send(connectionID,clientNotification.getBytes());
-                        Bcast(1);
-                        this.LastFileName = "";
-                        this.bytesToWrite.clear();
-                    }
-                    else {
-                        error(2);
-                        this.LastFileName = "";
-                        this.bytesToWrite.clear();
-                    }
-                } catch (Exception ignored) {
+                    Bcast(1);
+                    this.LastFileName = "";
+                    this.bytesToWrite.clear();
+                } else {
+                    error(2);
+                    this.LastFileName = "";
+                    this.bytesToWrite.clear();
                 }
+            } catch (Exception ignored) {
             }
         }
-
+    }
     public void Bcast(int index)
     {
         byte[] tocast = new byte[4 + this.LastFileName.length()];
@@ -313,7 +293,7 @@ public class Action {
 
     public void reciveAck(byte[] msg)
     {
-        byte[] b = new byte[]{msg[2],msg[3]};
+        byte[] b = new byte[]{msg[0],msg[1]};
         short blockNumber = (short)(((short)b[0] & 0xFF) << 8 | (short)(b[1] & 0xFF));
         sendData(blockNumber + 1);
     }
@@ -324,6 +304,7 @@ public class Action {
         if (this.sd.fileExists(this.LastFileName))
         {
             if (this.sd.deleteFile(this.LastFileName)) {
+                System.out.println("delete successful");
                 SendAck(0);
                 Bcast(0);
             }
@@ -340,13 +321,16 @@ public class Action {
         LinkedList<String> fileNames = this.sd.dirq();
         for (String f : fileNames)
         {
-            f = f + "0";
+
             byte[] bArray = f.getBytes();
             for (byte b : bArray)
                 this.bytesToSend.add(b);
+
+            this.bytesToSend.add((byte)0);
         }
 
-        sendData(0);
+        this.bytesToSend.removeLast();
+        sendData(1);
 
     }
 

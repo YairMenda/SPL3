@@ -1,11 +1,6 @@
 package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.api.BidiMessagingProtocol;
-import bgu.spl.net.srv.BaseConnections;
-import bgu.spl.net.srv.Connections;
-import bgu.spl.net.srv.ServerData;
-
-import java.util.List;
 
 public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 

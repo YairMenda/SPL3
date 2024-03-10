@@ -1,4 +1,6 @@
-package bgu.spl.net.srv;
+package bgu.spl.net.impl.tftp;
+
+import bgu.spl.net.impl.tftp.ServerData;
 
 public class serverDataSingleton {
     private static ServerData serverData;
