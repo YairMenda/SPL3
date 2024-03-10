@@ -1,5 +1,6 @@
-package bgu.spl.net.srv;
+package bgu.spl.net.impl.tftp;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,18 +15,21 @@ public class ServerData {
     private ConcurrentHashMap<Integer,String> ConnectionIDTOuserName;
     private LinkedList<String> fileNameLock;
     private Path folderDir;
-    public ServerData()
-    {
-        this.userNameToConncetionID = new ConcurrentHashMap<String,Integer>();
-        this.ConnectionIDTOuserName = new ConcurrentHashMap<Integer,String>();
+
+
+    public ServerData() {
+        this.userNameToConncetionID = new ConcurrentHashMap<String, Integer>();
+        this.ConnectionIDTOuserName = new ConcurrentHashMap<Integer, String>();
         fileNameLock = new LinkedList<String>();
 
         Path currentDir = Paths.get("").toAbsolutePath();
-        //Path serverDir = currentDir.getParent().getParent().getParent().getParent();
-        System.out.println(currentDir);
-        //System.out.println(serverDir);
         this.folderDir = currentDir.resolve("Files");
-        System.out.println(folderDir);
+
+        File Folder = new File(this.folderDir.toString());
+        for (File f : Folder.listFiles()) {
+            this.fileNameLock.add(f.getName());
+
+        }
     }
     public boolean isLoggedINName(String userName)
     {
@@ -98,11 +102,8 @@ public class ServerData {
     public boolean deleteFile(String fileName)
     {
         try {
-            int index = this.fileNameLock.indexOf(fileName);
-                synchronized (this.fileNameLock.get(index)) {
-                    this.fileNameLock.remove(index);
-                    return Files.deleteIfExists(Paths.get(this.folderDir + "/" + fileName));
-            }
+            this.fileNameLock.remove(fileName);
+            return Files.deleteIfExists(Paths.get(this.folderDir + "/" + fileName));
         }catch(Exception ignored){}
         return false;
     }

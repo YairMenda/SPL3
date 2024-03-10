@@ -1,8 +1,5 @@
 package bgu.spl.net.api;
 
-import bgu.spl.net.srv.Connections;
-import bgu.spl.net.srv.ServerData;
-
 public interface BidiMessagingProtocol<T>  {
 	/**
 	 * Used to initiate the current client protocol with it's personal connection ID and the connections implementation

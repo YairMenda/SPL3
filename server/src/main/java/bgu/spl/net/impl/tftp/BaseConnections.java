@@ -1,15 +1,22 @@
-package bgu.spl.net.srv;
+package bgu.spl.net.impl.tftp;
+
+import bgu.spl.net.srv.ConnectionHandler;
+import bgu.spl.net.srv.Connections;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-public class BaseConnections<T> implements Connections<T>{
+public class BaseConnections<T> implements Connections<T> {
 
-    private ConcurrentHashMap<Integer,ConnectionHandler<T>> connections;
+    private ConcurrentHashMap<Integer, ConnectionHandler<T>> connections;
+
+
 
     public BaseConnections()
     {
         this.connections = new ConcurrentHashMap<Integer,ConnectionHandler<T>>();
     }
+
+
     @Override
     public void connect(int connectionId, ConnectionHandler<T> handler) {
         this.connections.put(connectionId,handler);
@@ -29,6 +36,5 @@ public class BaseConnections<T> implements Connections<T>{
     public void disconnect(int connectionId) {
             this.connections.remove(connectionId);
     }
-
 
 }
