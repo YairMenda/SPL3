@@ -14,11 +14,13 @@ public class TftpClient {
             TftpEncoderDecoder endec = new TftpEncoderDecoder();
             TftpProtocol protocol = new TftpProtocol(out);
 
-            Thread keyboardListner = new Thread(new KeyboardListner(out,endec));
+            Thread keyboardListner = new Thread(new KeyboardListner(out,endec,protocol));
             keyboardListner.start();
 
             Thread ServerListner = new Thread(new ServerListner(in,endec,protocol));
             ServerListner.start();
+
+            System.out.println("Connected to the server!");
 
         }catch (Exception ignored){}
     }

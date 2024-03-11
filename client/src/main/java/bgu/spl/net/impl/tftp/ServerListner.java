@@ -24,20 +24,20 @@ public class ServerListner implements Runnable{
 
         try{
             int read;
-
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 byte[] nextMessage = endec.decodeNextByte((byte) read);
+                //if the msg is decoded completely
                 if (nextMessage != null) {
-                    System.out.println(nextMessage.toString());
                     protocol.process(nextMessage);
                 }
             }
 
-        }catch (Exception ignored){}}
-
-        public void close() throws IOException {
-            connected = false;
+        }catch (Exception ignored){
+            ignored.printStackTrace();
         }
+
+        System.out.println("Thank you!");
+    }
 
 
 }

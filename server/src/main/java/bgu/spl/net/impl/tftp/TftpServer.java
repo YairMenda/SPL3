@@ -8,7 +8,7 @@ public class TftpServer{
 
     public static void main(String[] args) {
 
-        // you can use any server...
+        // generates thread per client with the relevant factories
         Server.threadPerClient(
                 7777, //port
                 () -> new TftpProtocol(), //protocol factory

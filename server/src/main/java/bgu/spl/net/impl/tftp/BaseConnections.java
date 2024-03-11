@@ -34,7 +34,10 @@ public class BaseConnections<T> implements Connections<T> {
 
     @Override
     public void disconnect(int connectionId) {
-            this.connections.remove(connectionId);
+        try {
+            this.connections.get(connectionId).close();
+        }catch (Exception ignored){}
+        this.connections.remove(connectionId);
     }
 
 }

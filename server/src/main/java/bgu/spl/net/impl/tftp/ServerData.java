@@ -33,7 +33,7 @@ public class ServerData {
     }
     public boolean isLoggedINName(String userName)
     {
-        return this.userNameToConncetionID.contains(userName);
+        return this.ConnectionIDTOuserName.contains(userName);
     }
 
     public boolean isLoggedINID(int connectionID)
@@ -41,12 +41,15 @@ public class ServerData {
         return this.userNameToConncetionID.contains(connectionID);
     }
 
-    public void logIN(int connectionID,String userName)
+    public boolean logIN(int connectionID,String userName)
     {
-        this.userNameToConncetionID.put(userName,connectionID);
-        this.ConnectionIDTOuserName.put(connectionID,userName);
+        if (!isLoggedINName(userName)) {
+            this.userNameToConncetionID.put(userName, connectionID);
+            this.ConnectionIDTOuserName.put(connectionID, userName);
+            return true;
+        }
 
-        System.out.println(userName + " " + connectionID);
+        else return false;
     }
 
     public void logOut(int connectionID)
@@ -59,6 +62,7 @@ public class ServerData {
         return new LinkedList<>(this.userNameToConncetionID.values());
     }
 
+    //Reads the file data
     public byte[] readFile(String fileName) {
         try {
             int index = this.fileNameLock.indexOf(fileName);
@@ -71,6 +75,7 @@ public class ServerData {
         return null;
     }
 
+    //Creates a new file and writes data into.
     public boolean writeToFile(String fileName,LinkedList<Byte> lb)
     {
         try {
@@ -93,12 +98,14 @@ public class ServerData {
         return false;
     }
 
+    //Checks if the file exists
     public boolean fileExists(String filename)
     {
         String filePath = this.folderDir + "/" + filename;
         return Files.exists(Paths.get(filePath));
     }
 
+    //Deletes the relevant file
     public boolean deleteFile(String fileName)
     {
         try {
@@ -108,6 +115,7 @@ public class ServerData {
         return false;
     }
 
+    //Returns the file name list
     public LinkedList<String> dirq()
     {
         return new LinkedList<String>(this.fileNameLock);
