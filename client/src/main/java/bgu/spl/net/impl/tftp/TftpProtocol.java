@@ -16,12 +16,22 @@ public class TftpProtocol {
     }
     public void process(byte[] message) {
         // TODO implement this
-
-        System.out.println("Process");
         action.act(message);
 
     }
 
     public boolean shouldTerminate() {
-        return shouldTerminate;
-}}
+        return !action.connection;
+}
+
+    public void disconnect()
+    {
+        action.disconnect();
+    }
+    /*
+    public void connect()
+    {
+        this.shouldTerminate = true;
+
+    }*/
+}

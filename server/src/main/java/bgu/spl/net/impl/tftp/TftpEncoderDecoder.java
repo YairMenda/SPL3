@@ -16,6 +16,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     }
 
     @Override
+    //Decodes next byte into an array
     public byte[] decodeNextByte(byte nextByte) {
         // TODO: implement this
         //The first byte is zero
@@ -36,8 +37,9 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                     int packetsize = (short) (((short) s[0] & 0xFF) << 8 | (short) (s[1] & 0xFF));
                     if (Bytes.size() == packetsize + 6)
                         return BytesArray();
-                } else
-                    return null;
+                    else
+                        return null;
+                }
 
             case (4):
                 if (Bytes.size() == 4)
@@ -63,7 +65,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         return null;
     }
 
-
+    //Encodes msg
     @Override
     public byte[] encode(byte[] message) {
         //TODO: implement this
