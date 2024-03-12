@@ -7,8 +7,17 @@ public class TftpClient {
     //TODO: implement the main logic of the client, when using a thread per client the main logic goes here
     public static void main(String[] args)
     {
+        if (args.length == 0) {
+            args = new String[]{"localhost", "7777"};
+        }
+
+        if (args.length < 2) {
+            System.out.println("you must supply two arguments: host, port");
+            System.exit(1);
+        }
+
         try {
-            Socket socket = new Socket("localhost", 7777);
+            Socket socket = new Socket(args[0], Integer.parseInt(args[1]));
             BufferedInputStream in = new BufferedInputStream(socket.getInputStream());
             BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream());
             TftpEncoderDecoder endec = new TftpEncoderDecoder();

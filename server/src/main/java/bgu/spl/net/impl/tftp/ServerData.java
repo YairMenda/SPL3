@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerData {
@@ -13,21 +14,21 @@ public class ServerData {
     //INV - if a client is logged in he will be in the maps.
     private ConcurrentHashMap<String,Integer> userNameToConncetionID;
     private ConcurrentHashMap<Integer,String> ConnectionIDTOuserName;
-    private LinkedList<String> fileNameLock;
+    private ConcurrentHashMap<String,String> fileNameLock;
     private Path folderDir;
 
 
     public ServerData() {
         this.userNameToConncetionID = new ConcurrentHashMap<String, Integer>();
         this.ConnectionIDTOuserName = new ConcurrentHashMap<Integer, String>();
-        fileNameLock = new LinkedList<String>();
+        fileNameLock = new ConcurrentHashMap<String,String>();
 
         Path currentDir = Paths.get("").toAbsolutePath();
         this.folderDir = currentDir.resolve("Files");
 
         File Folder = new File(this.folderDir.toString());
         for (File f : Folder.listFiles()) {
-            this.fileNameLock.add(f.getName());
+            this.fileNameLock.put(f.getName(),f.getName());
 
         }
     }
@@ -65,12 +66,9 @@ public class ServerData {
     //Reads the file data
     public byte[] readFile(String fileName) {
         try {
-            int index = this.fileNameLock.indexOf(fileName);
-            if (index != -1) {
-                synchronized (this.fileNameLock.get(index)) {
+                synchronized (this.fileNameLock.get(fileName)) {
                     return Files.readAllBytes(Paths.get(this.folderDir + "/" + fileName));
                 }
-            }
         }catch(Exception ignored){}
         return null;
     }
@@ -90,7 +88,7 @@ public class ServerData {
                     i++;
                 }
                 Files.write(Paths.get(this.folderDir + "/" + fileName), byteArray);
-                this.fileNameLock.add(fileName);
+                this.fileNameLock.put(fileName,fileName);
                 return true;
             }
         }catch (Exception ignored){}
@@ -109,8 +107,10 @@ public class ServerData {
     public boolean deleteFile(String fileName)
     {
         try {
-            this.fileNameLock.remove(fileName);
-            return Files.deleteIfExists(Paths.get(this.folderDir + "/" + fileName));
+            synchronized (this.fileNameLock.get(fileName)) {
+                this.fileNameLock.remove(fileName);
+                return Files.deleteIfExists(Paths.get(this.folderDir + "/" + fileName));
+            }
         }catch(Exception ignored){}
         return false;
     }
@@ -118,6 +118,6 @@ public class ServerData {
     //Returns the file name list
     public LinkedList<String> dirq()
     {
-        return new LinkedList<String>(this.fileNameLock);
+        return new LinkedList<String>(this.fileNameLock.values());
     }
 }
