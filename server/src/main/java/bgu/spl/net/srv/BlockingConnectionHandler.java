@@ -46,6 +46,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             ex.printStackTrace();
         }
 
+        connectionsSingleton.getInstance().disconnect(this.connectionID);
     }
 
     @Override
